@@ -1,16 +1,21 @@
 // ============================================================
-// Bfashion SV — script.js  (versión corregida)
+// Bfashion For Life SV — script.js
+// Compatible con Apps Script (GAS) y GitHub Pages (fetch)
 // ============================================================
-// URL única del Apps Script deployment (doGet + doPost)
+
+// ============================================================
+// URL DEL DEPLOYMENT DE GOOGLE APPS SCRIPT
+// ⚠️ Actualiza esta URL cada vez que redespliegues en GAS
 // ============================================================
 var GAS_URL = "https://script.google.com/macros/s/AKfycbzpYoUe6n-ewqXZexQ4-O7cNTS8WJNPznVZh7zy45-aZFUUONmpDEHZHlWv8RF1FNl1/exec";
 
 // ============================================================
-// CONFIGURACIÓN
+// CONFIGURACIÓN — AGENTES (nombre + teléfono WhatsApp + cuentas)
 // ============================================================
 var AGENTES = {
   Agente1: {
-    nombre: "Agente 1", telefono: "50375868428",
+    nombre: "Agente 1",
+    telefono: "50375868428",
     cuentas: {
       efectivo:   { info: "Acordar en punto de encuentro" },
       agricola:   { numero: "0000-000000-0", nombre: "Agente Uno" },
@@ -18,7 +23,8 @@ var AGENTES = {
     }
   },
   Agente2: {
-    nombre: "Agente 2", telefono: "50364615667",
+    nombre: "Agente 2",
+    telefono: "50364615667",
     cuentas: {
       efectivo:   { info: "Acordar en punto de encuentro" },
       agricola:   { numero: "1111-111111-1", nombre: "Agente Dos" },
@@ -26,7 +32,8 @@ var AGENTES = {
     }
   },
   Agente3: {
-    nombre: "Agente 3", telefono: "50371162166",
+    nombre: "Agente 3",
+    telefono: "50371162166",
     cuentas: {
       efectivo:   { info: "Acordar en punto de encuentro" },
       agricola:   { numero: "2222-222222-2", nombre: "Agente Tres" },
@@ -35,11 +42,19 @@ var AGENTES = {
   }
 };
 
+// ============================================================
+// CONFIGURACIÓN — URLS ADMIN / AFILIADOS
+// ============================================================
 var URL_ADMIN     = "https://script.google.com/YOUR_ADMIN_URL";
 var URL_AFILIADOS = "https://script.google.com/YOUR_AFILIADOS_URL";
 
+// ============================================================
+// CONFIGURACIÓN — CREDENCIALES LOGIN
+// ============================================================
 var CREDENCIALES = {
-  admin:    [{ user: "admin",     pass: "Bfas2025!" }],
+  admin: [
+    { user: "admin", pass: "Bfas2025!" }
+  ],
   afiliado: [
     { user: "afiliado1", pass: "afil001" },
     { user: "afiliado2", pass: "afil002" },
@@ -47,6 +62,9 @@ var CREDENCIALES = {
   ]
 };
 
+// ============================================================
+// CONFIGURACIÓN — CUPONES
+// ============================================================
 var CUPONES = {
   "BFAS2":       { tipo: "fijo",       valor: 2,    minimo: 10, maxDesc: null, usos: -1, clave: "BFAS2"       },
   "BFAS10OFF":   { tipo: "porcentaje", valor: 0.10, minimo: 15, maxDesc: 5,   usos: -1, clave: "BFAS10OFF"   },
@@ -57,11 +75,21 @@ var CUPONES = {
 // ============================================================
 // ESTADO GLOBAL
 // ============================================================
-var allProducts = [], filteredProducts = [], currentCat = "todas";
-var cart = [], couponApplied = null, envioPrice = 0;
-var selectedAgent = null, selectedDelivery = null, selectedPayment = null, currentStep = 0;
-var loginType = "";
-var modalProduct = null, modalQty = 1, modalColor = "", modalTalla = "";
+var allProducts      = [];
+var filteredProducts = [];
+var currentCat       = "todas";
+var cart             = [];
+var couponApplied    = null;
+var envioPrice       = 0;
+var selectedAgent    = null;
+var selectedDelivery = null;
+var selectedPayment  = null;
+var currentStep      = 0;
+var loginType        = "";
+var modalProduct     = null;
+var modalQty         = 1;
+var modalColor       = "";
+var modalTalla       = "";
 
 // ============================================================
 // INIT
@@ -73,12 +101,12 @@ window.addEventListener("load", function () {
 
 // ============================================================
 // CARGA DE PRODUCTOS
-// Detecta si está en Apps Script (google.script.run) o en GitHub Pages (fetch)
+// Detecta entorno: Apps Script (google.script.run) o GitHub Pages (fetch)
 // ============================================================
 function loadProducts() {
   try {
     if (typeof google !== "undefined" && google.script && google.script.run) {
-      // --- MODO APPS SCRIPT (HTML servido desde GAS) ---
+      // ── MODO APPS SCRIPT ──────────────────────────────────
       google.script.run
         .withSuccessHandler(function (res) {
           try {
@@ -87,7 +115,6 @@ function loadProducts() {
             if (!d || !d.success) showToast("Error al cargar productos", "err");
           } catch (err) {
             console.error("Parse error:", err);
-            showToast("Error procesando datos", "err");
             allProducts = [];
           }
           filteredProducts = allProducts.slice();
@@ -101,10 +128,13 @@ function loadProducts() {
         .getProductsClient();
 
     } else {
-      // --- MODO GITHUB PAGES / WEB EXTERNA (fetch) ---
-      // doGet responde action=getProducts en JSON
-      fetch(GAS_URL + "?action=getProducts")
-        .then(function (res) { return res.json(); })
+      // ── MODO GITHUB PAGES / WEB EXTERNA (fetch) ───────────
+      // doGet en Code.gs responde ?action=productos con JSON
+      fetch(GAS_URL + "?action=productos")
+        .then(function (res) {
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          return res.json();
+        })
         .then(function (d) {
           allProducts = (d && d.success) ? (d.products || []) : [];
           if (!d || !d.success) showToast("Error al cargar productos", "err");
@@ -113,7 +143,7 @@ function loadProducts() {
           hideLoading();
         })
         .catch(function (err) {
-          console.error("Fetch error (getProducts):", err);
+          console.error("Fetch error:", err);
           fallbackProducts();
         });
     }
@@ -135,14 +165,14 @@ function fallbackProducts() {
 
 function getDemoProducts() {
   return [
-    { id:"1", nombre:"Collar Dorado Flor",          categoria:"collares",    precio:5.99,  stock:10, imagenURL:"", descripcion:"Hermoso collar dorado con dije de flor.",       colores:["Dorado","Plateado","Rosado"], tallas:[],                    activo:true, ultimaUnidad:false, pocasUnidades:false },
-    { id:"2", nombre:"Auriculares Inalámbricos Pro", categoria:"auriculares", precio:18.99, stock:3,  imagenURL:"", descripcion:"Sonido de alta calidad, batería 20h.",          colores:["Negro","Blanco","Azul"],      tallas:[],                    activo:true, ultimaUnidad:false, pocasUnidades:true  },
-    { id:"3", nombre:"Labial Mate Rosa",             categoria:"cosmeticos",  precio:4.50,  stock:1,  imagenURL:"", descripcion:"Larga duración, acabado mate perfecto.",        colores:["Rosa","Rojo","Nude"],         tallas:[],                    activo:true, ultimaUnidad:true,  pocasUnidades:false },
-    { id:"4", nombre:"Vestido Floral Verano",        categoria:"mujer",       precio:22.00, stock:5,  imagenURL:"", descripcion:"Ligero y fresco, tela 100% algodón.",          colores:["Azul","Rosa","Verde"],        tallas:["XS","S","M","L","XL"], activo:true, ultimaUnidad:false, pocasUnidades:false },
-    { id:"5", nombre:"Perfume Floral 100ml",         categoria:"cosmeticos",  precio:16.00, stock:8,  imagenURL:"", descripcion:"Fragancia floral fresca. Lleva 2 por $15 c/u.", colores:[],                            tallas:[],                    activo:true, ultimaUnidad:false, pocasUnidades:false },
-    { id:"6", nombre:"Perfume Oriental 100ml",       categoria:"cosmeticos",  precio:16.00, stock:6,  imagenURL:"", descripcion:"Fragancia oriental sensual. Lleva 2 por $15.",  colores:[],                            tallas:[],                    activo:true, ultimaUnidad:false, pocasUnidades:false },
-    { id:"7", nombre:"Camisa Casual Slim",           categoria:"hombre",      precio:14.99, stock:12, imagenURL:"", descripcion:"Slim fit, cómoda y elegante.",                 colores:["Blanco","Negro","Azul Marino"],tallas:["S","M","L","XL","XXL"], activo:true, ultimaUnidad:false, pocasUnidades:false },
-    { id:"8", nombre:"Aretes de Cristal",            categoria:"accesorios",  precio:3.50,  stock:2,  imagenURL:"", descripcion:"Diseño elegante y moderno.",                   colores:["Transparente","Rosa","Azul"], tallas:[],                    activo:true, ultimaUnidad:false, pocasUnidades:true  }
+    { id:"1", nombre:"Collar Dorado Flor",           categoria:"collares",    precio:5.99,  stock:10, imagenURL:"", descripcion:"Hermoso collar dorado con dije de flor.",        colores:["Dorado","Plateado","Rosado"],  tallas:[],                     activo:true, ultimaUnidad:false, pocasUnidades:false },
+    { id:"2", nombre:"Auriculares Inalámbricos Pro",  categoria:"auriculares", precio:18.99, stock:3,  imagenURL:"", descripcion:"Sonido de alta calidad, batería 20h.",           colores:["Negro","Blanco","Azul"],       tallas:[],                     activo:true, ultimaUnidad:false, pocasUnidades:true  },
+    { id:"3", nombre:"Labial Mate Rosa",              categoria:"cosmeticos",  precio:4.50,  stock:1,  imagenURL:"", descripcion:"Larga duración, acabado mate perfecto.",         colores:["Rosa","Rojo","Nude"],          tallas:[],                     activo:true, ultimaUnidad:true,  pocasUnidades:false },
+    { id:"4", nombre:"Vestido Floral Verano",         categoria:"mujer",       precio:22.00, stock:5,  imagenURL:"", descripcion:"Ligero y fresco, tela 100% algodón.",           colores:["Azul","Rosa","Verde"],         tallas:["XS","S","M","L","XL"], activo:true, ultimaUnidad:false, pocasUnidades:false },
+    { id:"5", nombre:"Perfume Floral 100ml",          categoria:"cosmeticos",  precio:16.00, stock:8,  imagenURL:"", descripcion:"Fragancia floral fresca. Lleva 2 por $15 c/u.", colores:[],                             tallas:[],                     activo:true, ultimaUnidad:false, pocasUnidades:false },
+    { id:"6", nombre:"Perfume Oriental 100ml",        categoria:"cosmeticos",  precio:16.00, stock:6,  imagenURL:"", descripcion:"Fragancia oriental sensual. Lleva 2 por $15.",  colores:[],                             tallas:[],                     activo:true, ultimaUnidad:false, pocasUnidades:false },
+    { id:"7", nombre:"Camisa Casual Slim",            categoria:"hombre",      precio:14.99, stock:12, imagenURL:"", descripcion:"Slim fit, cómoda y elegante.",                  colores:["Blanco","Negro","Azul Marino"],tallas:["S","M","L","XL","XXL"],activo:true, ultimaUnidad:false, pocasUnidades:false },
+    { id:"8", nombre:"Aretes de Cristal",             categoria:"accesorios",  precio:3.50,  stock:2,  imagenURL:"", descripcion:"Diseño elegante y moderno.",                    colores:["Transparente","Rosa","Azul"],  tallas:[],                     activo:true, ultimaUnidad:false, pocasUnidades:true  }
   ];
 }
 
@@ -201,6 +231,9 @@ function renderProducts(products) {
   });
 }
 
+// ============================================================
+// UTILIDADES
+// ============================================================
 function escHtml(s) {
   return String(s || "")
     .replace(/&/g, "&amp;")
@@ -212,7 +245,7 @@ function isPerfume(p) { return (p.nombre || "").toLowerCase().indexOf("perfume")
 function esRopa(p)    { return ["mujer","hombre","chicas","chicos","ropa"].indexOf((p.categoria || "").toLowerCase()) > -1; }
 
 // ============================================================
-// FILTROS
+// FILTROS — CATEGORÍA + BÚSQUEDA
 // ============================================================
 function filterCat(cat, btn) {
   currentCat = cat;
@@ -220,7 +253,9 @@ function filterCat(cat, btn) {
   btn.classList.add("active");
   applyFilters();
 }
+
 function filterProducts() { applyFilters(); }
+
 function applyFilters() {
   var q = (document.getElementById("search-input").value || "").toLowerCase().trim();
   filteredProducts = allProducts.filter(function (p) {
@@ -239,7 +274,10 @@ function applyFilters() {
 // MODAL PRODUCTO — FULLSCREEN
 // ============================================================
 function openProductModal(product) {
-  modalProduct = product; modalQty = 1; modalColor = ""; modalTalla = "";
+  modalProduct = product;
+  modalQty     = 1;
+  modalColor   = "";
+  modalTalla   = "";
 
   var imgWrap = document.getElementById("modal-img-wrap");
   var oldImg  = imgWrap.querySelector(".pmodal-img");
@@ -250,15 +288,16 @@ function openProductModal(product) {
     if (ph) ph.style.display = "none";
     var img = document.createElement("img");
     img.className = "pmodal-img";
-    img.src = product.imagenURL;
-    img.alt = product.nombre;
-    img.onerror = function () { this.remove(); if (ph) ph.style.display = "flex"; };
+    img.src       = product.imagenURL;
+    img.alt       = product.nombre;
+    img.onerror   = function () { this.remove(); if (ph) ph.style.display = "flex"; };
     imgWrap.insertBefore(img, imgWrap.firstChild);
   } else {
     if (ph) { ph.style.display = "flex"; ph.textContent = "🛍️"; }
   }
 
-  var bw = document.getElementById("modal-badge-wrap"); bw.innerHTML = "";
+  var bw = document.getElementById("modal-badge-wrap");
+  bw.innerHTML = "";
   if (product.ultimaUnidad)       bw.innerHTML = '<div class="product-badge badge-ultima">Última unidad</div>';
   else if (product.pocasUnidades) bw.innerHTML = '<div class="product-badge badge-pocas">Pocas unidades</div>';
 
@@ -277,37 +316,48 @@ function openProductModal(product) {
   var cw = document.getElementById("modal-colores-wrap");
   var cc = document.getElementById("modal-colores");
   var cs = document.getElementById("modal-color-sel");
-  cc.innerHTML = ""; if (cs) cs.textContent = "";
+  cc.innerHTML = "";
+  if (cs) cs.textContent = "";
   if (product.colores && product.colores.length > 0) {
     cw.style.display = "block";
     product.colores.forEach(function (c) {
-      var b = document.createElement("div"); b.className = "color-swatch";
+      var b   = document.createElement("div"); b.className = "color-swatch";
       var dot = document.createElement("div"); dot.className = "color-dot"; dot.style.background = colorToHex(c);
-      b.appendChild(dot); b.appendChild(document.createTextNode(c));
+      b.appendChild(dot);
+      b.appendChild(document.createTextNode(c));
       b.addEventListener("click", function () {
         cc.querySelectorAll(".color-swatch").forEach(function (s) { s.classList.remove("selected"); });
-        b.classList.add("selected"); modalColor = c; if (cs) cs.textContent = "· " + c;
+        b.classList.add("selected");
+        modalColor = c;
+        if (cs) cs.textContent = "· " + c;
       });
       cc.appendChild(b);
     });
-  } else { cw.style.display = "none"; }
+  } else {
+    cw.style.display = "none";
+  }
 
   // Tallas
   var tw = document.getElementById("modal-tallas-wrap");
   var tc = document.getElementById("modal-tallas");
   var ts = document.getElementById("modal-talla-sel");
-  tc.innerHTML = ""; if (ts) ts.textContent = "";
+  tc.innerHTML = "";
+  if (ts) ts.textContent = "";
   if (product.tallas && product.tallas.length > 0) {
     tw.style.display = "block";
     product.tallas.forEach(function (t) {
       var b = document.createElement("div"); b.className = "size-btn"; b.textContent = t;
       b.addEventListener("click", function () {
         tc.querySelectorAll(".size-btn").forEach(function (s) { s.classList.remove("selected"); });
-        b.classList.add("selected"); modalTalla = t; if (ts) ts.textContent = "· " + t;
+        b.classList.add("selected");
+        modalTalla = t;
+        if (ts) ts.textContent = "· " + t;
       });
       tc.appendChild(b);
     });
-  } else { tw.style.display = "none"; }
+  } else {
+    tw.style.display = "none";
+  }
 
   updateModalQtyUI();
   resetModalBtn();
@@ -340,9 +390,9 @@ function updateModalQtyUI() {
   var enC = 0;
   cart.forEach(function (it) { if (String(it.id) === String(modalProduct.id)) enC += it.cantidad; });
   var disp = modalProduct.stock - enC;
-  document.getElementById("modal-qty").textContent  = modalQty;
-  document.getElementById("qty-minus").disabled = modalQty <= 1;
-  document.getElementById("qty-plus").disabled  = modalQty >= disp;
+  document.getElementById("modal-qty").textContent = modalQty;
+  document.getElementById("qty-minus").disabled    = modalQty <= 1;
+  document.getElementById("qty-plus").disabled     = modalQty >= disp;
   var note = document.getElementById("modal-stock-note");
   if (note) {
     if (disp <= 0) { note.textContent = "Agotado en carrito"; note.style.color = "var(--red)"; }
@@ -358,10 +408,20 @@ function resetModalBtn() {
 }
 
 function colorToHex(n) {
-  var m = { "negro":"#111","blanco":"#fff","rojo":"#e53935","azul":"#1e88e5","verde":"#43a047","rosa":"#e91e63","amarillo":"#fdd835","naranja":"#fb8c00","morado":"#8e24aa","gris":"#9e9e9e","dorado":"#ffc107","plateado":"#bdbdbd","nude":"#d4a574","beige":"#f5deb3","celeste":"#00bcd4","transparente":"#e0e0e0","azul marino":"#1a237e","rosado":"#f48fb1","cafe":"#795548","turquesa":"#009688","coral":"#ff7043","lila":"#ce93d8" };
+  var m = {
+    "negro":"#111","blanco":"#fff","rojo":"#e53935","azul":"#1e88e5",
+    "verde":"#43a047","rosa":"#e91e63","amarillo":"#fdd835","naranja":"#fb8c00",
+    "morado":"#8e24aa","gris":"#9e9e9e","dorado":"#ffc107","plateado":"#bdbdbd",
+    "nude":"#d4a574","beige":"#f5deb3","celeste":"#00bcd4","transparente":"#e0e0e0",
+    "azul marino":"#1a237e","rosado":"#f48fb1","cafe":"#795548","turquesa":"#009688",
+    "coral":"#ff7043","lila":"#ce93d8"
+  };
   return m[(n || "").toLowerCase()] || "#ccc";
 }
 
+// ============================================================
+// AGREGAR AL CARRITO DESDE MODAL
+// ============================================================
 function addFromModal() {
   if (!modalProduct) return;
   if (modalProduct.stock <= 0) { showToast("Producto agotado", "err"); return; }
@@ -390,17 +450,22 @@ function addFromModal() {
   cart.forEach(function (it) {
     if (String(it.id) === String(modalProduct.id) && it.color === modalColor && it.talla === modalTalla) existente = it;
   });
-  if (existente) { existente.cantidad += modalQty; existente.precio = precio; }
-  else cart.push({
-    id:         modalProduct.id,
-    nombre:     modalProduct.nombre,
-    categoria:  modalProduct.categoria,
-    precio:     precio,
-    cantidad:   modalQty,
-    imagenURL:  modalProduct.imagenURL,
-    color:      modalColor,
-    talla:      modalTalla
-  });
+
+  if (existente) {
+    existente.cantidad += modalQty;
+    existente.precio    = precio;
+  } else {
+    cart.push({
+      id:        modalProduct.id,
+      nombre:    modalProduct.nombre,
+      categoria: modalProduct.categoria,
+      precio:    precio,
+      cantidad:  modalQty,
+      imagenURL: modalProduct.imagenURL,
+      color:     modalColor,
+      talla:     modalTalla
+    });
+  }
 
   saveCartToStorage();
   updateCartUI();
@@ -417,7 +482,7 @@ function addFromModal() {
 }
 
 // ============================================================
-// CARRITO
+// CARRITO — OPERACIONES
 // ============================================================
 function removeFromCart(i) {
   cart.splice(i, 1);
@@ -454,7 +519,7 @@ function calcSubtotal() {
 function calcDescuento(sub) {
   if (!couponApplied) return 0;
   var c = couponApplied, d = 0;
-  if (c.tipo === "fijo")       d = c.valor;
+  if (c.tipo === "fijo")            d = c.valor;
   else if (c.tipo === "porcentaje") { d = sub * c.valor; if (c.maxDesc) d = Math.min(d, c.maxDesc); }
   return parseFloat(d.toFixed(2));
 }
@@ -466,6 +531,9 @@ function calcTotal() {
   return parseFloat(Math.max(0, s - d + e).toFixed(2));
 }
 
+// ============================================================
+// CARRITO — UI
+// ============================================================
 function updateCartUI() {
   var count = 0;
   cart.forEach(function (it) { count += it.cantidad; });
@@ -516,9 +584,13 @@ function updateCartUI() {
   if (dr) dr.style.display = d > 0 ? "flex" : "none";
 }
 
+// ============================================================
+// CARRITO — PERSISTENCIA EN localStorage
+// ============================================================
 function saveCartToStorage() {
   try { localStorage.setItem("mixy_cart", JSON.stringify(cart)); } catch (e) {}
 }
+
 function loadCartFromStorage() {
   try {
     var r = localStorage.getItem("mixy_cart");
@@ -549,6 +621,7 @@ function applyCoupon() {
   setMsg(msgEl, c.tipo === "envio" ? "¡Envío gratis! 🎉" : "¡Ahorras $" + d.toFixed(2) + "! ✅", "ok");
   updateCartUI();
 }
+
 function setMsg(el, msg, t) {
   if (!el) return;
   el.textContent = msg;
@@ -562,6 +635,7 @@ function openCart() {
   document.getElementById("cart-panel").classList.add("open");
   document.body.style.overflow = "hidden";
 }
+
 function closeCart() {
   document.getElementById("cart-panel").classList.remove("open");
   document.body.style.overflow = "";
@@ -573,8 +647,8 @@ function closeCart() {
 function continueCheckout() {
   if (cart.length === 0) { showToast("Tu carrito está vacío", "warn"); return; }
   closeCart();
-  currentStep    = 0;
-  selectedAgent  = null;
+  currentStep      = 0;
+  selectedAgent    = null;
   selectedDelivery = null;
   selectedPayment  = null;
   renderStep(0);
@@ -596,9 +670,9 @@ function renderStep(s) {
 }
 
 function goToStep(s) {
-  if (s === 1 && !selectedAgent)    { showToast("Selecciona un agente",           "warn"); return; }
-  if (s === 2 && !selectedDelivery) { showToast("Selecciona método de entrega",   "warn"); return; }
-  if (s === 3 && !selectedPayment)  { showToast("Selecciona método de pago",      "warn"); return; }
+  if (s === 1 && !selectedAgent)    { showToast("Selecciona un agente",         "warn"); return; }
+  if (s === 2 && !selectedDelivery) { showToast("Selecciona método de entrega", "warn"); return; }
+  if (s === 3 && !selectedPayment)  { showToast("Selecciona método de pago",    "warn"); return; }
   renderStep(s);
 }
 
@@ -613,7 +687,7 @@ function selectDelivery(nombre, precio, el) {
   document.querySelectorAll(".delivery-opt").forEach(function (e) { e.classList.remove("selected"); });
   el.classList.add("selected");
   selectedDelivery = nombre;
-  envioPrice = parseFloat(precio) || 0;
+  envioPrice       = parseFloat(precio) || 0;
   updateCartUI();
 }
 
@@ -627,16 +701,16 @@ function renderPaymentOpts(a) {
     '</div>' +
     '<div class="payment-opt" onclick="selectPayment(\'Banco Agrícola\',this)">' +
       '<div class="payment-opt-title">Banco Agrícola</div>' +
-      '<div class="payment-account">Cuenta: ' + escHtml(info.cuentas.agricola.numero) + '</div>' +
+      '<div class="payment-account">Cuenta: '      + escHtml(info.cuentas.agricola.numero) + '</div>' +
       '<div class="payment-account">A nombre de: ' + escHtml(info.cuentas.agricola.nombre) + '</div>' +
     '</div>' +
     '<div class="payment-opt" onclick="selectPayment(\'Davivienda\',this)">' +
       '<div class="payment-opt-title">Davivienda</div>' +
-      '<div class="payment-account">Cuenta: ' + escHtml(info.cuentas.davivienda.numero) + '</div>' +
+      '<div class="payment-account">Cuenta: '      + escHtml(info.cuentas.davivienda.numero) + '</div>' +
       '<div class="payment-account">A nombre de: ' + escHtml(info.cuentas.davivienda.nombre) + '</div>' +
     '</div>';
-  opts.innerHTML   = h;
-  selectedPayment  = null;
+  opts.innerHTML  = h;
+  selectedPayment = null;
 }
 
 function selectPayment(m, el) {
@@ -646,23 +720,18 @@ function selectPayment(m, el) {
 }
 
 // ============================================================
-// CONFIRMACIÓN DEL PEDIDO
-// ============================================================
-// CORRECCIÓN PRINCIPAL: el fetch y sendWA estaban fuera de esta función,
-// ejecutándose al cargar la página. Ahora todo el flujo vive aquí dentro.
+// CONFIRMACIÓN DEL PEDIDO + WhatsApp
 // ============================================================
 function confirmOrder() {
-  // --- Leer formulario ---
-  var nombre  = (document.getElementById("f-nombre").value    || "").trim();
-  var tel     = (document.getElementById("f-telefono").value  || "").trim();
-  var dir     = (document.getElementById("f-direccion").value || "").trim();
-  var correo  = (document.getElementById("f-correo").value    || "").trim();
+  var nombre = (document.getElementById("f-nombre").value    || "").trim();
+  var tel    = (document.getElementById("f-telefono").value  || "").trim();
+  var dir    = (document.getElementById("f-direccion").value || "").trim();
+  var correo = (document.getElementById("f-correo").value    || "").trim();
 
-  if (!nombre) { showToast("Ingresa tu nombre",    "err"); return; }
-  if (!tel)    { showToast("Ingresa tu teléfono",  "err"); return; }
+  if (!nombre) { showToast("Ingresa tu nombre",   "err"); return; }
+  if (!tel)    { showToast("Ingresa tu teléfono", "err"); return; }
   if (!selectedAgent || !selectedDelivery || !selectedPayment || cart.length === 0) {
-    showToast("Completa todos los pasos", "err");
-    return;
+    showToast("Completa todos los pasos", "err"); return;
   }
 
   var total = calcTotal();
@@ -679,26 +748,15 @@ function confirmOrder() {
   });
 
   var orderData = {
-    action:         "createOrder",   // campo que lee doPost en Code.gs
-    nombre:         nombre,
-    telefono:       tel,
-    direccion:      dir,
-    correo:         correo,
-    items:          items,
-    total:          total,
-    metodoEntrega:  selectedDelivery,
-    metodoPago:     selectedPayment,
-    agente:         selectedAgent
+    nombre:nombre, telefono:tel, direccion:dir, correo:correo,
+    items:items, total:total,
+    metodoEntrega:selectedDelivery, metodoPago:selectedPayment, agente:selectedAgent
   };
 
-  // --- Bloquear botón mientras procesa ---
   var btn = document.querySelector(".btn-whatsapp");
   if (btn) { btn.disabled = true; btn.innerHTML = "⏳ Procesando..."; }
 
-  // ============================================================
-  // sendWA — abre WhatsApp con el resumen del pedido
-  // Definida DENTRO de confirmOrder para acceder a las variables locales
-  // ============================================================
+  // ── Abre WhatsApp con el número del agente seleccionado ──────
   function sendWA(idPedido) {
     var agInfo = AGENTES[selectedAgent];
     var waTel  = agInfo ? agInfo.telefono : "50300000000";
@@ -709,26 +767,28 @@ function confirmOrder() {
 
     var iTexto = items.map(function (it) {
       var v = [it.color, it.talla].filter(Boolean).join("/");
-      return "• " + it.nombre + (v ? " (" + v + ")" : "") +
-             " x" + it.cantidad + " = $" + (parseFloat(it.precio) * parseInt(it.cantidad)).toFixed(2);
+      return "• " + it.nombre +
+             (v ? " (" + v + ")" : "") +
+             " x" + it.cantidad +
+             " = $" + (parseFloat(it.precio) * parseInt(it.cantidad)).toFixed(2);
     }).join("\n");
 
     var msg =
       "🛍️ *PEDIDO Bfashion For Life*\n\n" +
-      "📋 *ID:* "      + idPedido + "\n" +
-      "📅 *Fecha:* "   + new Date().toLocaleDateString("es-SV") + "\n\n" +
-      "👤 *Cliente:* " + nombre   + "\n" +
-      "📞 *Teléfono:* "+ tel      +
+      "📋 *ID:* "       + idPedido + "\n" +
+      "📅 *Fecha:* "    + new Date().toLocaleDateString("es-SV") + "\n\n" +
+      "👤 *Cliente:* "  + nombre + "\n" +
+      "📞 *Teléfono:* " + tel +
       (dir ? "\n📍 *Dirección:* " + dir : "") + "\n\n" +
       "🛒 *Productos:*\n" + iTexto +
       (desc > 0 ? "\n\n🎟️ *Descuento:* -$" + desc.toFixed(2) : "") +
       "\n🚚 *Envío:* "  + (envP > 0 ? "$" + envP.toFixed(2) : "Gratis") +
       "\n💵 *TOTAL:* $" + total.toFixed(2) + "\n\n" +
-      "📦 *Entrega:* " + selectedDelivery + "\n" +
-      "💳 *Pago:* "    + selectedPayment  + "\n\n" +
+      "📦 *Entrega:* "  + selectedDelivery + "\n" +
+      "💳 *Pago:* "     + selectedPayment  + "\n\n" +
       "¡Gracias por tu compra en Bfashion SV! 💕";
 
-    // Abrir WhatsApp (ventana nueva antes del reset para evitar bloqueo en móvil)
+    // Abrir WhatsApp ANTES de limpiar estado (evita bloqueo en móvil)
     window.open("https://wa.me/" + waTel + "?text=" + encodeURIComponent(msg), "_blank");
 
     // Marcar cupón de un solo uso
@@ -740,35 +800,31 @@ function confirmOrder() {
       } catch (e2) {}
     }
 
-    // Actualizar stock local (la hoja ya fue actualizada por el backend)
+    // Actualizar stock local para reflejar el cambio en UI
     items.forEach(function (it) {
       var p = allProducts.find(function (pr) { return String(pr.id) === String(it.id); });
       if (p) {
-        p.stock        = Math.max(0, p.stock - it.cantidad);
-        p.ultimaUnidad = p.stock === 1;
+        p.stock         = Math.max(0, p.stock - it.cantidad);
+        p.ultimaUnidad  = p.stock === 1;
         p.pocasUnidades = p.stock > 1 && p.stock <= 3;
       }
     });
 
-    // Limpiar estado
-    cart          = [];
-    couponApplied = null;
-    envioPrice    = 0;
+    // Limpiar estado del carrito
+    cart = []; couponApplied = null; envioPrice = 0;
     saveCartToStorage();
     updateCartUI();
 
-    // Cerrar checkout
+    // Cerrar checkout y limpiar formulario
     document.getElementById("checkout-modal").classList.remove("open");
     document.body.style.overflow = "";
-
-    // Limpiar formulario
     ["f-nombre","f-telefono","f-direccion","f-correo"].forEach(function (fid) {
       var fe = document.getElementById(fid); if (fe) fe.value = "";
     });
 
     showToast("¡Pedido enviado! 🎉", "ok");
 
-    // Restaurar botón
+    // Restaurar botón WhatsApp
     if (btn) {
       btn.disabled = false;
       btn.innerHTML =
@@ -778,37 +834,57 @@ function confirmOrder() {
     }
   }
 
-  // ============================================================
-  // POST a doPost de Code.gs
-  // URL única: GAS_URL — el mismo deployment sirve GET y POST
-  // Body: JSON serializado con action="createOrder" + datos del pedido
-  // ============================================================
-  fetch(GAS_URL, {
-    method:  "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body:    "data=" + encodeURIComponent(JSON.stringify(orderData))
-  })
-  .then(function (res) {
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    return res.json();
-  })
-  .then(function (d) {
-    if (d && d.success) {
-      // Backend OK → abrir WhatsApp con el ID real del pedido
-      sendWA(d.idPedido || ("ORD-" + Date.now()));
-    } else {
-      // Backend reportó error (stock, validación, etc.)
-      var msg = (d && d.error) ? d.error : "Error desconocido. Intenta de nuevo.";
-      showToast("Error: " + msg, "err");
-      if (btn) { btn.disabled = false; btn.textContent = "Confirmar y enviar por WhatsApp"; }
-    }
-  })
-  .catch(function (err) {
-    // Error de red o timeout
-    console.error("[confirmOrder] Fetch error:", err);
-    showToast("Error de conexión. Verifica tu internet.", "err");
-    if (btn) { btn.disabled = false; btn.textContent = "Confirmar y enviar por WhatsApp"; }
-  });
+  // ── Enviar al backend según entorno ───────────────────────────
+  if (typeof google !== "undefined" && google.script && google.script.run) {
+    // MODO APPS SCRIPT
+    google.script.run
+      .withSuccessHandler(function (res) {
+        try {
+          var d = (typeof res === "string") ? JSON.parse(res) : res;
+          if (d && d.success) {
+            sendWA(d.idPedido || ("ORD-" + Date.now()));
+          } else {
+            showToast("Error: " + ((d && d.error) || "Intenta de nuevo"), "err");
+            if (btn) { btn.disabled = false; btn.textContent = "Confirmar y enviar por WhatsApp"; }
+          }
+        } catch (parseErr) {
+          sendWA("ORD-" + Date.now());
+        }
+      })
+      .withFailureHandler(function (err) {
+        console.error("GAS createOrder error:", err);
+        showToast("Error al guardar, enviando por WA...", "warn");
+        sendWA("ORD-" + Date.now());
+        if (btn) { btn.disabled = false; }
+      })
+      .createOrderClient(JSON.stringify(orderData));
+
+  } else {
+    // MODO GITHUB PAGES (fetch POST)
+    fetch(GAS_URL, {
+      method:  "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body:    "action=createOrder&data=" + encodeURIComponent(JSON.stringify(orderData))
+    })
+    .then(function (res) {
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return res.json();
+    })
+    .then(function (d) {
+      if (d && d.success) {
+        sendWA(d.idPedido || ("ORD-" + Date.now()));
+      } else {
+        showToast("Error: " + ((d && d.error) || "Error desconocido"), "err");
+        if (btn) { btn.disabled = false; btn.textContent = "Confirmar y enviar por WhatsApp"; }
+      }
+    })
+    .catch(function (err) {
+      console.error("Fetch createOrder error:", err);
+      showToast("Sin conexión al servidor, enviando por WA...", "warn");
+      sendWA("ORD-" + Date.now());
+      if (btn) { btn.disabled = false; }
+    });
+  }
 }
 
 // ============================================================
@@ -822,9 +898,11 @@ function closeMenu() {
   document.getElementById("menu-dropdown").classList.remove("open");
   document.getElementById("menu-overlay").classList.remove("open");
 }
+
 function openUbicacionCedros() {
   window.open("https://maps.google.com/?q=Cedros,+Caceres,+El+Salvador", "_blank");
 }
+
 function openLogin(type) {
   loginType = type;
   closeMenu();
@@ -836,6 +914,7 @@ function openLogin(type) {
   document.getElementById("login-modal").classList.add("open");
 }
 function closeLogin() { document.getElementById("login-modal").classList.remove("open"); }
+
 function doLogin() {
   var u     = (document.getElementById("login-user").value || "").trim();
   var p     = (document.getElementById("login-pass").value || "").trim();
@@ -865,17 +944,24 @@ function scrollToTop() { window.scrollTo({ top: 0, behavior: "smooth" }); }
 // ============================================================
 // EVENTOS GLOBALES
 // ============================================================
-document.getElementById("checkout-modal").addEventListener("click", function (e) {
-  if (e.target === this) { this.classList.remove("open"); document.body.style.overflow = ""; }
-});
-
-document.addEventListener("keydown", function (e) {
-  if (e.key === "Escape") {
-    closeProductModal();
-    closeCart();
-    closeMenu();
-    closeLogin();
-    var cm = document.getElementById("checkout-modal");
-    if (cm) { cm.classList.remove("open"); document.body.style.overflow = ""; }
+document.addEventListener("DOMContentLoaded", function () {
+  // Cerrar checkout al hacer clic fuera
+  var cm = document.getElementById("checkout-modal");
+  if (cm) {
+    cm.addEventListener("click", function (e) {
+      if (e.target === this) { this.classList.remove("open"); document.body.style.overflow = ""; }
+    });
   }
+
+  // ESC cierra todo
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") {
+      closeProductModal();
+      closeCart();
+      closeMenu();
+      closeLogin();
+      var modal = document.getElementById("checkout-modal");
+      if (modal) { modal.classList.remove("open"); document.body.style.overflow = ""; }
+    }
+  });
 });
