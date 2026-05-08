@@ -7,7 +7,7 @@
 // URL DEL DEPLOYMENT DE GOOGLE APPS SCRIPT
 // ⚠️ Actualiza esta URL cada vez que redespliegues en GAS
 // ============================================================
-var GAS_URL = "https://script.google.com/macros/s/AKfycbzpYoUe6n-ewqXZexQ4-O7cNTS8WJNPznVZh7zy45-aZFUUONmpDEHZHlWv8RF1FNl1/exec";
+var GAS_URL = "https://script.google.com/macros/s/AKfycbxwitYQJciUaBEQBJqd9QORYGQbZuGOQ_5R6vE3f7q2AbXAsVhVz3Yr5n_05y6TZco/exec";
 
 // ============================================================
 // CONFIGURACIÓN — AGENTES (nombre + teléfono WhatsApp + cuentas)
