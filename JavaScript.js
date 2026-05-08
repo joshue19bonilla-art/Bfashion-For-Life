@@ -125,7 +125,7 @@ function loadProducts() {
           console.error("GAS error:", err);
           fallbackProducts();
         })
-        .getProducts();
+        .getProductsClient();
 
     } else {
       // ── MODO GITHUB PAGES / WEB EXTERNA (fetch) ───────────
